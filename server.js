@@ -1,5 +1,8 @@
 const mysql = require("mysql");
-
+var inquirer = require("inquirer");
+var roleData;
+var departmentData;
+var employeeData;
 const connection = mysql.createConnection({
     host: "Localhost",
     port: 3306,
@@ -16,15 +19,10 @@ connection.connect(function (err) {
 });
 
 function init() {
-
-    let roleData;
-    let departmentData;
-    let employeeData;
-
-
+// code that calls all roles/departments/employees for choices
     connection.query("SELECT * FROM role", function (err, res) {
         if (err) throw err;
-        roleData = res.map(role => ({ name: role.first_name, value: role.id }));
+        roleData = res.map(role => ({ name: role.title, value: role.id }));
     });
     connection.query("SELECT * FROM department", function (err, res) {
         if (err) throw err;
@@ -36,7 +34,7 @@ function init() {
     });
 
     inquirer.prompt([{
-
+// displays all options for thr user
         type: "list",
         message: "What would you like to do? (use arrow keys)",
         name: "task",
@@ -53,16 +51,15 @@ function init() {
             "Delete department",
             "Delete role",
             "Delete employee",
-            "View total budget of a department",
             "Exit program"
 
         ],
         default: "Exit program"
 
     }]).then(function (res) {
-
+// cases to run the corresponding function based on user selection
         switch (res.task) {
-            case "Add departments":
+            case "Add department":
                 addDep();
                 break;
 
@@ -134,7 +131,7 @@ const addDep = () => {
             message: "Enter the name of the department that you would like to add:"
         }
     ]).then(addDep => {
-        connection.query("INSERT INTO department(department_name) VALUES(?)", [addDep.newDep], function (err, postData) {
+        connection.query("INSERT INTO department(name) VALUES(?)", [addDep.newDep], function (err, postData) {
             if (err)
                 throw err;
 
@@ -215,7 +212,7 @@ const addEmp = () => {
                 throw err;
 
             // console.log(postData.insertId);
-            console.log("Role has successfully been created!");
+            console.log("Employee has successfully been created!");
 
             init();
         });
@@ -231,7 +228,7 @@ const viewDep = () => {
     connection.query("SELECT * FROM department", function (err, res) {
         if (err)
             throw err;
-        console.log(res);
+        console.table(res);
         init();
     });
 }
@@ -242,10 +239,10 @@ const viewDep = () => {
 
 const viewRoles = () => {
     console.log("Roles: \n");
-    connection.query("SELECT * FROM role", function (err, res) {
+    connection.query("SELECT role.id, role.title, role.salary, department.name AS department FROM role LEFT JOIN department ON role.department_id = department.id;", function (err, res) {
         if (err)
             throw err;
-        console.log(res);
+        console.table(res);
         init();
     });
 }
@@ -256,10 +253,11 @@ const viewRoles = () => {
 
 const viewEmp = () => {
     console.log("Employees: \n");
-    connection.query("SELECT * FROM employee", function (err, res) {
+
+    connection.query("SELECT employee.id, employee.first_name, employee.last_name, role.title AS role, CONCAT(employee.first_name,' ', employee.last_name) AS manager_id FROM employee LEFT JOIN role ON employee.role_id = role.id;", function (err, res) {
         if (err)
             throw err;
-        console.log(res);
+        console.table(res);
         init();
     });
 }
@@ -282,19 +280,19 @@ const updateEmpRole = () => {
             choices: roleData
         }
     ]).then(function (res) {
-
+console.log(res.changeEmpRole);
         connection.query("UPDATE employee SET ? WHERE ?", [
             {
                 role_id: res.chooseRole
             },
             {
-                name: res.changeEmpRole
+                id: res.changeEmpRole
             }
         ], function (err, updateData) {
             if (err)
                 throw err;
 
-            console.log(`${changeEmpRole} was updated successfully!`);
+            console.log(`Employee was updated successfully!`);
 
             init();
         });
@@ -328,14 +326,14 @@ const updateEmpManager = () => {
                 manager_id: res.chooseManager
             },
             {
-                name: res.changeEmpManager
+                id: res.changeEmpManager
                 // DO I NEED TO ADD THE ROLE TO IDENTIFY?====================================================================
             }
         ], function (err, updateData) {
             if (err)
                 throw err;
 
-            console.log(`${changeEmpManager} was updated successfully!`);
+            console.log(`Employee was updated successfully!`);
 
             init();
         });
@@ -354,7 +352,7 @@ const viewEmpByManager = () => {
         }
     ]).then(function (res) {
 
-        connection.query("SELECT * FROM employee WHERE ?", [
+        connection.query("SELECT employee.id, employee.first_name, employee.last_name, role.title AS role, CONCAT(employee.first_name,' ', employee.last_name) AS manager_id FROM employee LEFT JOIN role ON employee.role_id = role.id WHERE ? ", [
             {
                 manager_id: res.viewByManager
             }
@@ -362,7 +360,7 @@ const viewEmpByManager = () => {
             if(err)
                 console.log(err);
     
-            console.log(sortManager);
+            console.table(sortManager);
             init();
         });
     });
@@ -380,25 +378,89 @@ const deleteDep = () => {
             choices: departmentData
         }
     ]).then(function (res) {
-
-        connection.query("DELETE department WHERE ", [
+console.log(res.deleteDepartment)
+        connection.query("DELETE FROM department WHERE ?", [
             {
-                department_name: res.deleteDepartment
+                id: res.deleteDepartment
             }
         ], function (err, updateData) {
             if (err)
                 throw err;
 
-            console.log(`${deleteDepartment} was deleted successfully!`);
+            console.log(`department was deleted successfully!`);
 
             init();
         });
     });
 };
 
+// ==============================================================================================================================================================================
+// DELETE EMPLOYEE ================================================================================================================================================================
+// ==============================================================================================================================================================================
 
+const deleteEmp = () => {
+    inquirer.prompt([
+        {
+            type: "list",
+            message: "Which employee would you like to delete?",
+            name: "deleteEmployee",
+            choices: employeeData
+        }
+    ]).then(function (res) {
+console.log(res.deleteEmployee)
+        connection.query("DELETE FROM employee WHERE ?", [
+            {
+                id: res.deleteEmployee
+            }
+        ], function (err, updateData) {
+            if (err)
+                throw err;
 
-// "Add department",
+            console.log(`Employee was deleted successfully!`);
+
+            init();
+        });
+    });
+};
+
+// ==============================================================================================================================================================================
+// DELETE ROLE ================================================================================================================================================================
+// ==============================================================================================================================================================================
+
+const deleteRole = () => {
+    inquirer.prompt([
+        {
+            type: "list",
+            message: "Which role would you like to delete?",
+            name: "deleteRole",
+            choices: roleData
+        }
+    ]).then(function (res) {
+console.log(res.deleteRole)
+        connection.query("DELETE FROM role WHERE ?", [
+            {
+                id: res.deleteRole
+            }
+        ], function (err, updateData) {
+            if (err)
+                throw err;
+
+            console.log(`Role was deleted successfully!`);
+
+            init();
+        });
+    });
+};
+
+// ==============================================================================================================================================================================
+// EXIT PROGRAM ================================================================================================================================================================
+// ==============================================================================================================================================================================
+
+const exitProgram = () => {
+    connection.end();
+}
+
+//     "Add department",
 //     "Add role",
 //     "Add employee",
 //     "View departments",
